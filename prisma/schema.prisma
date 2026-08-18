@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  CUSTOMER
+}
+
+enum OrderType {
+  RETAIL
+  WHOLESALE
+  CORPORATE
+  HOTEL
+  FARMER
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  DISPATCHED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum AlertPriority {
+  INFO
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ─── User Management ─────────────────────────────────────────────────────────
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  password     String
+  name         String
+  phone        String?    @unique // Crucial for M-Pesa STK push
+  role         Role       @default(CUSTOMER)
+  isActive     Boolean    @default(true) // For soft-deleting accounts
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  orders       Order[]
+  auditLogs    AuditLog[] // Track actions performed by Admin/Manager
+}
+
+// ─── Inventory & Suppliers ───────────────────────────────────────────────────
+
+model Supplier {
+  id              String      @id @default(uuid())
+  name            String
+  category        String      // e.g., "Fish Feed", "Equipment"
+  contactPhone    String
+  outstandingDebt Float       @default(0)
+  rating          Int         @default(5)
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  fishBatches     FishBatch[] // If they supplied fingerlings
+}
+
+model FishBatch {
+  id               String     @id @default(uuid())
+  batchCode        String     @unique // e.g., TS-001
+  species          String
+  pondCount        Int        @default(1)
+  totalKg          Float
+  avgWeight        String     // e.g., "450g"
+  healthStatus     String     @default("Healthy")
+  expectedHarvest  DateTime?  // Calculated to derive "daysToHarvest"
+  pricePerKg       Float      
+  
+  supplierId       String?
+  supplier         Supplier?  @relation(fields: [supplierId], references: [id])
+
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  orderItems       OrderItem[]
+}
+
+// ─── Sales & Orders ──────────────────────────────────────────────────────────
+
+model Order {
+  id              String      @id @default(uuid())
+  orderNumber     String      @unique // e.g., SAL-2026-0326
+  orderType       OrderType   @default(RETAIL)
+  totalAmount     Float
+  status          OrderStatus @default(PENDING)
+  deliveryAddress String?     
+  deliveryDate    DateTime?
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  
+  items           OrderItem[]
+  payment         Payment?
+}
+
+model OrderItem {
+  id          String    @id @default(uuid())
+  quantityKg  Float
+  subtotal    Float
+
+  orderId     String
+  order       Order     @relation(fields: [orderId], references: [id])
+  
+  batchId     String
+  batch       FishBatch @relation(fields: [batchId], references: [id])
+}
+
+// ─── Financials ──────────────────────────────────────────────────────────────
+
+model Payment {
+  id                String        @id @default(uuid())
+  amount            Float
+  status            PaymentStatus @default(PENDING)
+  mpesaReceipt      String?       @unique // Returned by Safaricom Daraja
+  checkoutRequestId String        @unique // Tracks the STK push request
+  phoneNumber       String        // Number that actually paid
+  paymentDate       DateTime?
+
+  orderId           String        @unique
+  order             Order         @relation(fields: [orderId], references: [id])
+  
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+// ─── System & Monitoring ─────────────────────────────────────────────────────
+
+model Alert {
+  id          String        @id @default(uuid())
+  message     String
+  type        String        // 'warning', 'info', 'success'
+  priority    AlertPriority @default(INFO)
+  isRead      Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+}
+
+model AuditLog {
+  id          String    @id @default(uuid())
+  action      String    // e.g., "Updated price for TS-001" or "Deleted User"
+  details     String?   // JSON string of changes
+  createdAt   DateTime  @default(now())
+
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+}
