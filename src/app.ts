@@ -7,6 +7,8 @@ import authRoutes from "./routes/auth";
 import inventoryRoutes from "./routes/inventory";
 import orderRoutes from "./routes/orders";
 import paymentRoutes from "./routes/payments";
+import productRoutes from "./routes/products";
+import importRoutes from "./routes/imports";
 
 const app: Application = express();
 
@@ -36,6 +38,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/imports", importRoutes);
 // Health Check
 app.get("/health", (req: Request, res: Response) => {
   res.status(200).json({ status: "healthy", timestamp: new Date() });

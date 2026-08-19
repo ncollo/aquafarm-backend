@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -40,6 +41,12 @@ enum AlertPriority {
   MEDIUM
   HIGH
   CRITICAL
+}
+
+enum ProductStatus {
+  AVAILABLE
+  OUT_OF_STOCK
+  PENDING_IMAGE
 }
 
 // ─── User Management ─────────────────────────────────────────────────────────
@@ -91,41 +98,48 @@ model FishBatch {
 
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
-
-  orderItems       OrderItem[]
+  
+  // Notice that orderItems OrderItem[] has been removed
 }
-
 // ─── Sales & Orders ──────────────────────────────────────────────────────────
 
 model Order {
   id              String      @id @default(uuid())
-  orderNumber     String      @unique // e.g., SAL-2026-0326
+  orderNumber     String      @unique
   orderType       OrderType   @default(RETAIL)
   totalAmount     Float
   status          OrderStatus @default(PENDING)
-  deliveryAddress String?     
+  deliveryAddress String?
   deliveryDate    DateTime?
   
+  // Guest checkout customer info
+  customerName    String?
+  customerEmail   String?
+  customerPhone   String?
+
+  // NEW: Store the generated PDF receipt URL for admin retrieval
+  receiptUrl      String?     
+
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  userId          String
-  user            User        @relation(fields: [userId], references: [id])
-  
+  userId          String?
+  user            User?       @relation(fields: [userId], references: [id])
+
   items           OrderItem[]
-  payment         Payment?
+  payments        Payment[]
 }
 
 model OrderItem {
-  id          String    @id @default(uuid())
-  quantityKg  Float
-  subtotal    Float
-
+  id          String   @id @default(uuid())
   orderId     String
-  order       Order     @relation(fields: [orderId], references: [id])
+  order       Order    @relation(fields: [orderId], references: [id])
   
-  batchId     String
-  batch       FishBatch @relation(fields: [batchId], references: [id])
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  
+  quantity    Float    // Replaces quantityKg to handle all item types
+  subtotal    Float
 }
 
 // ─── Financials ──────────────────────────────────────────────────────────────
@@ -165,4 +179,21 @@ model AuditLog {
 
   userId      String
   user        User      @relation(fields: [userId], references: [id])
+}
+
+model Product {
+  id          String        @id @default(uuid())
+  name        String
+  category    String        // e.g., "fish", "feed", "rods"
+  description String?
+  price       Float
+  unit        String        // e.g., "per kg", "per piece"
+  stock       Float         // Float handles both kg (fish) and integers (rods)
+  imageUrl    String?       // Firebase Storage URL
+  status      ProductStatus @default(AVAILABLE)
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  orderItems  OrderItem[]
 }

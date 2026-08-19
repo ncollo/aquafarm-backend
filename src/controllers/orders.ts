@@ -1,110 +1,126 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
-import { AuthRequest } from '../middlewares/auth';
-import { OrderStatus, Role } from '@prisma/client';
+import { OrderStatus } from '@prisma/client';
 
-// Generate a random order number like SAL-2026-1234
-const generateOrderNumber = () => `SAL-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+// 1. Create Order (Guest or Authenticated)
+export const createOrder = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { orderType, deliveryAddress, customerName, customerEmail, customerPhone, items } = req.body;
 
-export const createOrder = async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-        const { items, orderType, deliveryAddress } = req.body;
-        const userId = req.user!.id; // Extracted from the JWT
-
-        if (!items || items.length === 0) {
-            res.status(400).json({ error: 'Order must contain at least one item' });
-            return;
-        }
-
-        // Use a Prisma transaction to ensure atomic operations
-        const order = await prisma.$transaction(async (tx) => {
-            let totalAmount = 0;
-            const orderItemsData: { batchId: string; quantityKg: number; subtotal: number }[] = [];
-
-            for (const item of items) {
-                const batch = await tx.fishBatch.findUnique({ where: { id: item.batchId } });
-
-                if (!batch) throw new Error(`Batch not found: ${item.batchId}`);
-                if (batch.totalKg < item.quantityKg) throw new Error(`Insufficient stock for batch ${batch.batchCode}`);
-
-                const subtotal = batch.pricePerKg * item.quantityKg;
-                totalAmount += subtotal;
-
-                // Deduct inventory
-                await tx.fishBatch.update({
-                    where: { id: batch.id },
-                    data: { totalKg: batch.totalKg - item.quantityKg }
-                });
-
-                orderItemsData.push({
-                    batchId: batch.id,
-                    quantityKg: item.quantityKg,
-                    subtotal
-                });
-            }
-
-            // Create the final order
-            return tx.order.create({
-                data: {
-                    orderNumber: generateOrderNumber(),
-                    orderType: orderType || 'RETAIL',
-                    totalAmount,
-                    deliveryAddress,
-                    userId,
-                    items: {
-                        create: orderItemsData
-                    }
-                },
-                include: { items: true }
-            });
-        });
-
-        res.status(201).json(order);
-    } catch (error: any) {
-        console.error(error);
-        res.status(400).json({ error: error.message || 'Failed to create order' });
+    if (!items || items.length === 0) {
+      res.status(400).json({ error: 'Order must contain at least one item' });
+      return;
     }
+
+    let totalAmount = 0;
+    const orderItemsData = [];
+
+    for (const item of items) {
+      const productId = item.productId || item.batchId;
+      const quantity = Number(item.quantity || item.quantityKg || 1);
+
+      const product = await prisma.product.findUnique({
+        where: { id: String(productId) },
+      });
+
+      if (!product) {
+        res.status(404).json({ error: `Product not found: ${productId}` });
+        return;
+      }
+
+      if (product.stock < quantity) {
+        res.status(400).json({ error: `Insufficient stock for ${product.name}` });
+        return;
+      }
+
+      const subtotal = product.price * quantity;
+      totalAmount += subtotal;
+
+      orderItemsData.push({
+        productId: product.id,
+        quantity,
+        subtotal,
+      });
+    }
+
+    // Generate readable Order Number (e.g. AQF-2026-0001)
+    const orderCount = await prisma.order.count();
+    const orderNumber = `AQF-${new Date().getFullYear()}-${String(orderCount + 1).padStart(4, '0')}`;
+
+    const order = await prisma.order.create({
+      data: {
+        orderNumber,
+        orderType: orderType || 'RETAIL',
+        totalAmount,
+        deliveryAddress: deliveryAddress || 'Store Pickup',
+        customerName: customerName || 'Guest Customer',
+        customerEmail: customerEmail || null,
+        customerPhone: customerPhone || null,
+        items: {
+          create: orderItemsData,
+        },
+      },
+      include: {
+        items: {
+          include: { product: true },
+        },
+      },
+    });
+
+    res.status(201).json(order);
+  } catch (error: any) {
+    console.error('Create Order Error:', error);
+    res.status(500).json({ error: error.message || 'Failed to create order' });
+  }
 };
 
-export const getOrders = async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-        const { role, id } = req.user!;
+// 2. Get All Orders (For Admin / Order Tracking)
+export const getOrders = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { status } = req.query;
 
-        const orders = await prisma.order.findMany({
-            where: (role === Role.ADMIN || role === Role.MANAGER) ? undefined : { userId: id },
-            include: {
-                user: { select: { name: true, email: true, phone: true } },
-                items: { include: { batch: { select: { species: true, batchCode: true } } } }
-            },
-            orderBy: { createdAt: 'desc' }
-        });
-
-        res.status(200).json(orders);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Failed to fetch orders' });
+    const whereClause: any = {};
+    if (status) {
+      whereClause.status = status as OrderStatus;
     }
+
+    const orders = await prisma.order.findMany({
+      where: whereClause,
+      include: {
+        items: {
+          include: { product: true },
+        },
+        payments: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.status(200).json(orders);
+  } catch (error: any) {
+    console.error('Get Orders Error:', error);
+    res.status(500).json({ error: 'Failed to fetch orders' });
+  }
 };
 
-export const updateOrderStatus = async (req: AuthRequest, res: Response): Promise<void> => {
+// 3. Update Order Status (For Admin Dashboard)
+export const updateOrderStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { status } = req.body;
 
-    // Validate the enum
-    if (!Object.values(OrderStatus).includes(status)) {
-      res.status(400).json({ error: 'Invalid order status' });
-      return;
-    }
-
-    const updatedOrder = await prisma.order.update({
+    const order = await prisma.order.update({
       where: { id: String(id) },
-      data: { status }
+      data: { status: status as OrderStatus },
+      include: {
+        items: {
+          include: { product: true },
+        },
+      },
     });
 
-    res.status(200).json(updatedOrder);
-  } catch (error) {
-    console.error(error);
+    res.status(200).json(order);
+  } catch (error: any) {
+    console.error('Update Order Status Error:', error);
     res.status(500).json({ error: 'Failed to update order status' });
   }
 };
