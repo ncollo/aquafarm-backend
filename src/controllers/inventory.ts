@@ -18,7 +18,7 @@ export const getInventory = async (req: Request, res: Response): Promise<void> =
 // Create a new fish batch (Admin/Manager only)
 export const createBatch = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { batchCode, species, pondCount, totalKg, avgWeight, expectedHarvest, pricePerKg, supplierId } = req.body;
+    const { batchCode, species, totalKg, avgWeight, expectedHarvest, pricePerKg, supplierId, healthStatus } = req.body;
 
     const existingBatch = await prisma.fishBatch.findUnique({ where: { batchCode } });
     if (existingBatch) {
@@ -30,11 +30,11 @@ export const createBatch = async (req: Request, res: Response): Promise<void> =>
       data: {
         batchCode,
         species,
-        pondCount,
-        totalKg,
+        totalKg: Number(totalKg),
         avgWeight,
+        healthStatus: healthStatus || 'GOOD',
         expectedHarvest: expectedHarvest ? new Date(expectedHarvest) : null,
-        pricePerKg,
+        pricePerKg: Number(pricePerKg || 0),
         supplierId
       }
     });
@@ -56,7 +56,7 @@ export const updateBatch = async (req: Request, res: Response): Promise<void> =>
       data: { 
         totalKg: totalKg !== undefined ? Number(totalKg) : undefined, 
         avgWeight: avgWeight !== undefined ? String(avgWeight) : undefined, 
-        healthStatus: healthStatus !== undefined ? String(healthStatus) : undefined 
+        healthStatus: healthStatus !== undefined ? healthStatus : undefined 
       }
     });
 
@@ -65,4 +65,4 @@ export const updateBatch = async (req: Request, res: Response): Promise<void> =>
     console.error(error);
     res.status(500).json({ error: 'Failed to update batch' });
   }
-};
+};
