@@ -12,6 +12,7 @@ import importRoutes from "./routes/imports";
 import stockRoutes from "./routes/stock";
 import salesRoutes from "./routes/sales";
 import supplierRoutes from "./routes/suppliers";
+import analyticsRoutes from "./routes/analytics";
 
 const app: Application = express();
 
@@ -46,6 +47,8 @@ app.use("/api/imports", importRoutes);
 app.use("/api/stock", stockRoutes);
 app.use("/api/sales", salesRoutes);
 app.use("/api/suppliers", supplierRoutes);
+app.use("/api/analytics", analyticsRoutes);
+
 
 // Health Check
 app.get("/health", (req: Request, res: Response) => {
