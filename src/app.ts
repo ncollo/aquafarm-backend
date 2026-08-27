@@ -9,6 +9,8 @@ import orderRoutes from "./routes/orders";
 import paymentRoutes from "./routes/payments";
 import productRoutes from "./routes/products";
 import importRoutes from "./routes/imports";
+import stockRoutes from "./routes/stock";
+import salesRoutes from "./routes/sales";
 
 const app: Application = express();
 
@@ -40,6 +42,8 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/imports", importRoutes);
+app.use("/api/stock", stockRoutes);
+app.use("/api/sales", salesRoutes);
 // Health Check
 app.get("/health", (req: Request, res: Response) => {
   res.status(200).json({ status: "healthy", timestamp: new Date() });
