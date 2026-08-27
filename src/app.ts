@@ -13,6 +13,7 @@ import stockRoutes from "./routes/stock";
 import salesRoutes from "./routes/sales";
 import supplierRoutes from "./routes/suppliers";
 import analyticsRoutes from "./routes/analytics";
+import reportRoutes from "./routes/reports";
 
 const app: Application = express();
 
@@ -48,6 +49,8 @@ app.use("/api/stock", stockRoutes);
 app.use("/api/sales", salesRoutes);
 app.use("/api/suppliers", supplierRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/reports", reportRoutes);
+
 
 
 // Health Check
