@@ -49,6 +49,18 @@ enum ProductStatus {
   PENDING_IMAGE
 }
 
+enum PondStatus {
+  ACTIVE
+  MAINTENANCE
+}
+
+enum HealthStatus {
+  EXCELLENT
+  GOOD
+  MONITOR
+  CRITICAL
+}
+
 // ─── User Management ─────────────────────────────────────────────────────────
 
 model User {
@@ -83,24 +95,26 @@ model Supplier {
 }
 
 model FishBatch {
-  id               String     @id @default(uuid())
-  batchCode        String     @unique // e.g., TS-001
-  species          String
-  pondCount        Int        @default(1)
-  totalKg          Float
-  avgWeight        String     // e.g., "450g"
-  healthStatus     String     @default("Healthy")
-  expectedHarvest  DateTime?  // Calculated to derive "daysToHarvest"
-  pricePerKg       Float      
+  id                String       @id @default(uuid())
+  batchCode         String       @unique // e.g., TS-001
+  species           String
+  totalKg           Float
+  avgWeight         String       // e.g., "450g"
+  healthStatus      HealthStatus @default(GOOD)
+  expectedHarvest   DateTime?    // Calculated to derive "daysToHarvest"
+  pricePerKg        Float
   
-  supplierId       String?
-  supplier         Supplier?  @relation(fields: [supplierId], references: [id])
+  supplierId        String?
+  supplier          Supplier?    @relation(fields: [supplierId], references: [id])
 
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
-  
-  // Notice that orderItems OrderItem[] has been removed
+  // NEW: A batch can be spread across multiple ponds
+  ponds             Pond[]
+
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 }
+
+
 // ─── Sales & Orders ──────────────────────────────────────────────────────────
 
 model Order {
@@ -196,4 +210,26 @@ model Product {
   updatedAt   DateTime      @updatedAt
 
   orderItems  OrderItem[]
+}
+
+// ─── Farm Operations (Ponds & Telemetry) ─────────────────────────────────────
+
+model Pond {
+  id              String       @id @default(uuid())
+  name            String       @unique // e.g., "Pond RT-003"
+  status          PondStatus   @default(ACTIVE)
+  
+  // Live Water Quality Metrics (Powering the Analytics Dashboard)
+  phLevel         Float?       // e.g., 7.2
+  dissolvedOxygen Float?       // e.g., 6.8 (mg/L)
+  temperature     Float?       // e.g., 24.0 (degC)
+  ammonia         Float?       // e.g., 0.2 (ppm)
+  lastTestedAt    DateTime     @default(now())
+  
+  // Relationships
+  currentBatchId  String?
+  currentBatch    FishBatch?   @relation(fields: [currentBatchId], references: [id])
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 }
