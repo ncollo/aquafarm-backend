@@ -87,3 +87,56 @@ export const createSale = async (req: Request, res: Response): Promise<void> => 
     res.status(400).json({ error: error.message || 'Failed to process sale' });
   }
 };
+
+export const updateSaleStatus = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const orderNumber = req.params.id as string;
+    const { status, customerName } = req.body;
+
+    const updatedOrder = await prisma.order.update({
+      where: { orderNumber },
+      data: { status, customerName }
+    });
+
+    res.status(200).json(updatedOrder);
+  } catch (error: any) {
+    console.error('Error updating sale:', error);
+    res.status(500).json({ error: 'Failed to update sale' });
+  }
+};
+
+export const deleteSale = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const orderNumber = req.params.id as string;
+
+    const order = await (prisma.order as any).findUnique({
+      where: { orderNumber },
+      include: { items: true }
+    });
+
+
+    if (!order) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const item of order.items) {
+        const product = await tx.product.findUnique({ where: { id: item.productId } });
+        if (product) {
+          await tx.product.update({
+            where: { id: product.id },
+            data: { stock: product.stock + item.quantity }
+          });
+        }
+      }
+      await tx.orderItem.deleteMany({ where: { orderId: order.id } });
+      await tx.order.delete({ where: { id: order.id } });
+    });
+
+    res.status(200).json({ message: 'Sale deleted and stock restored successfully' });
+  } catch (error: any) {
+    console.error('Error deleting sale:', error);
+    res.status(500).json({ error: 'Failed to delete sale' });
+  }
+};
