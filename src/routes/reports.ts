@@ -6,13 +6,18 @@ import {
   generateWaterQualityReport,
   generateFullFarmExport
 } from '../controllers/reports';
+import { verifyToken, requireRoles } from '../middlewares/auth';
+import { Role } from '@prisma/client';
 
 const router = Router();
 
-router.get('/sales/pdf', generateSalesReport);
-router.get('/stock/pdf', generateStockReport);
-router.get('/financial/pdf', generateFinancialReport);
-router.get('/water-quality/pdf', generateWaterQualityReport);
-router.get('/export-all/pdf', generateFullFarmExport);
+// Operational reports accessible to both ADMIN and MANAGER
+router.get('/stock/pdf', verifyToken, requireRoles([Role.ADMIN, Role.MANAGER]), generateStockReport);
+router.get('/water-quality/pdf', verifyToken, requireRoles([Role.ADMIN, Role.MANAGER]), generateWaterQualityReport);
+
+// Sensitive financial and full farm audit exports restricted to ADMIN only
+router.get('/sales/pdf', verifyToken, requireRoles([Role.ADMIN]), generateSalesReport);
+router.get('/financial/pdf', verifyToken, requireRoles([Role.ADMIN]), generateFinancialReport);
+router.get('/export-all/pdf', verifyToken, requireRoles([Role.ADMIN]), generateFullFarmExport);
 
 export default router;
