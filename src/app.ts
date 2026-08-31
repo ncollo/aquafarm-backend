@@ -27,7 +27,32 @@ const app: Application = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      const configuredOrigins = (process.env.CLIENT_URL || "")
+        .split(",")
+        .map((s) => s.trim().replace(/\/$/, ""))
+        .filter(Boolean);
+
+      const defaultAllowed = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:5000",
+        "http://127.0.0.1:5173",
+      ];
+
+      const allAllowed = [...configuredOrigins, ...defaultAllowed];
+      const isAllowed =
+        allAllowed.includes(origin) ||
+        origin.endsWith(".vercel.app") ||
+        process.env.NODE_ENV !== "production";
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(null, true);
+      }
+    },
     credentials: true,
   })
 );
