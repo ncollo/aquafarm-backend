@@ -6,20 +6,23 @@ export const seedDefaultUsers = async (): Promise<void> => {
   try {
     const salt = await bcrypt.genSalt(10);
 
+    const adminPassword = process.env.ADMIN_INITIAL_PASSWORD || 'AquaFarm@Admin#2026!Pro';
+    const managerPassword = process.env.MANAGER_INITIAL_PASSWORD || 'AquaFarm@Manager#2026!Pro';
+
     const usersToSeed = [
       {
         email: 'admin@aquafarm.co.ke',
         name: 'John Mwangi',
         role: Role.ADMIN,
         phone: '254712345678',
-        passwordRaw: 'admin123',
+        passwordRaw: adminPassword,
       },
       {
         email: 'manager@aquafarm.co.ke',
         name: 'Grace Wanjiku',
         role: Role.MANAGER,
         phone: '254723456789',
-        passwordRaw: 'manager123',
+        passwordRaw: managerPassword,
       },
     ];
 
@@ -37,7 +40,7 @@ export const seedDefaultUsers = async (): Promise<void> => {
             isActive: true,
           },
         });
-        console.log(`[Seed] Created default user: ${u.email} (${u.role})`);
+        console.log(`[Seed] Created secure user account: ${u.email} (${u.role})`);
       }
     }
   } catch (error) {
