@@ -2,8 +2,8 @@ import nodemailer from 'nodemailer';
 
 const createTransporter = () => {
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT),
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT) || 587,
     secure: false, // true for port 465, false for other ports (like 587)
     auth: {
       user: process.env.SMTP_USER,
@@ -21,7 +21,7 @@ export const sendReceiptEmail = async (
   const transporter = createTransporter();
 
   const mailOptions = {
-    from: `"Aquafarm Fisheries" <${process.env.FROM_EMAIL}>`,
+    from: `"Aquafarm Fisheries" <${process.env.FROM_EMAIL || process.env.SMTP_USER || 'noreply@aquafarm.co.ke'}>`,
     to: toEmail,
     subject: `Your Aquafarm Receipt - Order ${orderNumber}`,
     text: `Dear ${customerName},\n\nThank you for your purchase from Aquafarm Fisheries! Your payment has been successfully processed.\n\nPlease find your official receipt attached to this email.\n\nBest regards,\nThe Aquafarm Team`,
@@ -50,6 +50,48 @@ export const sendReceiptEmail = async (
     console.log(`Receipt email sent successfully to ${toEmail}`);
   } catch (error) {
     console.error('Error sending receipt email:', error);
-    // We don't throw here so that an email failure doesn't crash the M-Pesa webhook response
+  }
+};
+
+export const sendPasswordResetEmail = async (
+  toEmail: string,
+  userName: string,
+  resetToken: string,
+  resetUrl: string
+): Promise<void> => {
+  const transporter = createTransporter();
+
+  const mailOptions = {
+    from: `"Aquafarm Security" <${process.env.FROM_EMAIL || process.env.SMTP_USER || 'noreply@aquafarm.co.ke'}>`,
+    to: toEmail,
+    subject: 'Aquafarm Security — Password Reset Request',
+    text: `Hello ${userName},\n\nA password reset request was initiated for your Aquafarm admin account.\n\nUse this link to reset your password:\n${resetUrl}\n\nThis link will expire in 15 minutes. If you did not request this, please ignore this email.\n\nAquafarm Security Team`,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <h2 style="color: #0f766e; margin: 0;">Aquafarm Fisheries</h2>
+          <p style="color: #64748b; font-size: 14px; margin-top: 4px;">Staff & Admin Security Center</p>
+        </div>
+        <p>Hello <strong>${userName}</strong>,</p>
+        <p>We received a request to reset the password for your Aquafarm account (<strong>${toEmail}</strong>).</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${resetUrl}" style="background-color: #0f766e; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+            Reset Your Password
+          </a>
+        </div>
+        <p style="font-size: 13px; color: #64748b;">Or copy and paste this link into your browser:<br/><span style="color: #0f766e; word-break: break-all;">${resetUrl}</span></p>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+        <p style="font-size: 12px; color: #94a3b8; text-align: center;">
+          This link will expire in 15 minutes. If you did not request this password reset, please ignore this email.
+        </p>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Password reset email sent to ${toEmail}`);
+  } catch (error) {
+    console.error('Error sending password reset email:', error);
   }
 };
