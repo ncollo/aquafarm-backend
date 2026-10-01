@@ -1,0 +1,46 @@
+{
+  "code-markers": [
+    {
+      "name": "Controllers & Route Handlers",
+      "patterns": [
+        "src/controllers/**",
+        "src/routes/**"
+      ]
+    },
+    {
+      "name": "Database Schema & Prisma ORM",
+      "patterns": [
+        "prisma/**",
+        "src/config/prisma.ts"
+      ]
+    },
+    {
+      "name": "Services & Business Logic",
+      "patterns": [
+        "src/services/**",
+        "src/config/**"
+      ]
+    },
+    {
+      "name": "Authentication & RBAC Middleware",
+      "patterns": [
+        "src/middleware/**",
+        "src/controllers/auth.ts"
+      ]
+    },
+    {
+      "name": "Database Scripts & Seeders",
+      "patterns": [
+        "src/scripts/**"
+      ]
+    },
+    {
+      "name": "Generated & Build Artifacts",
+      "patterns": [
+        "dist/**",
+        "node_modules/**",
+        "package-lock.json"
+      ]
+    }
+  ]
+}

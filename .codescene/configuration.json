@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "analysis": {
+    "code_health": {
+      "fail_on_decline": true,
+      "warning_threshold": 8.0,
+      "error_threshold": 6.0
+    },
+    "hotspots": {
+      "track_defects": true,
+      "max_complexity_warning": true
+    },
+    "pull_requests": {
+      "enable_delta_analysis": true,
+      "comment_on_pr": true,
+      "strict_mode": false
+    }
+  }
+}
